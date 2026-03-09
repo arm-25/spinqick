@@ -1,4 +1,13 @@
-"""File for managing filter types/settings and applying them to waveforms."""
+"""
+File for managing filter types/settings and applying them to waveforms.
+
+To add a filter: 
+    1. Define new filter class in bottom section of the file (filters are alphabetized).
+    2. In spinqick_enums.py add the new enum to FilterTypes
+    3. Use that enum in filter_config to call on your filter
+    Note: kwargs get passed through, so you can add what you need for any filter type and
+    retroactively support more kwargs for existing filters if needed.
+"""
 
 import json
 import logging
@@ -13,7 +22,7 @@ from spinqick.settings import file_settings
 logger = logging.getLogger(__name__)
 
 # Module-level cache — populated by load_filter_config() / build_filter_map()
-_filter_config: dict = {"filters": {}, "paths": {}}
+_filter_config: dict = {"filters": {}, "paths": {}, "gate_scheme": {}}
 _filter_map: dict[int, "FilterPath"] = {}
 
 
@@ -26,13 +35,13 @@ class Filter(ABC):
     def __init__(self, **kwargs):
         pass
 
-    def apply(self, wf, **kwargs):
-        """Apply the filter to the input waveform."""
-        pass
-
     def __repr__(self) -> str:
         params = ", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
         return f"{type(self).__name__}({params})"
+    
+    def apply(self, wf, **kwargs):
+        """Apply the filter to the input waveform."""
+        pass
 
 
 class FilterPath():
@@ -52,6 +61,14 @@ class FilterPath():
                 filter_obj = self._create_filter(filter_dict)
                 self.filter_path.append(filter_obj)
 
+    def __repr__(self) -> str:
+        n = len(self.filter_path)
+        header = f"Filter_Path({n} filter{'s' if n != 1 else ''}):"
+        if n == 0:
+            return f"{header} (empty)"
+        steps = "\n".join(f"  {i+1}. {f!r}" for i, f in enumerate(self.filter_path))
+        return f"{header}\n{steps}"
+    
     def _create_filter(self, filter_dict: dict) -> Filter:
         """
         Takes the filter dictionary passed from the filter_config and instantiates a Filter class
@@ -98,14 +115,6 @@ class FilterPath():
             wf_final = wf_filt[pre_length:]
 
         return wf_final
-
-    def __repr__(self) -> str:
-        n = len(self.filter_path)
-        header = f"Filter_Path({n} filter{'s' if n != 1 else ''}):"
-        if n == 0:
-            return f"{header} (empty)"
-        steps = "\n".join(f"  {i+1}. {f!r}" for i, f in enumerate(self.filter_path))
-        return f"{header}\n{steps}"
     
 
 def load_filter_config() -> dict:
@@ -118,15 +127,25 @@ def load_filter_config() -> dict:
     if file_settings.filter_config is not None:
         _filter_config = json.loads(Path(file_settings.filter_config).read_text())
     else:
-        _filter_config = {"filters": {}, "paths": {}}
-    logger.info("Loaded filter config with %d filters and %d paths.",
+        _filter_config = {"filters": {}, "paths": {}, "gate_scheme": {}}
+    logger.info("Loaded filter config with %d filters, %d paths, %d gate_scheme entries.",
                 len(_filter_config.get("filters", {})),
-                len(_filter_config.get("paths", {})))
+                len(_filter_config.get("paths", {})),
+                len(_filter_config.get("gate_scheme", {})))
     return _filter_config
 
 
 def build_filter_map(hardware_config) -> dict[int, "FilterPath"]:
     """Build a mapping of qick_gen number → FilterPath from the cached filter config.
+
+    Uses three levels of indirection from filter_config.json:
+      - gate_scheme: maps gate names or gate types to a path name
+      - paths: maps path names to ordered lists of filter names
+      - filters: maps filter names to filter type + params
+
+    Resolution priority for each channel: gate name in gate_scheme →
+    gate_type in gate_scheme → skip. A gate_scheme value of "none" means
+    no filtering for that gate.
 
     Call this after load_filter_config() and after hardware_config is loaded.
     The resulting map is cached at module level so add_predistorted_envelope
@@ -137,6 +156,7 @@ def build_filter_map(hardware_config) -> dict[int, "FilterPath"]:
     """
     global _filter_map
     _filter_map = {}
+    gate_scheme = _filter_config.get("gate_scheme", {})
     paths = _filter_config.get("paths", {})
     filters = _filter_config.get("filters", {})
 
@@ -147,17 +167,25 @@ def build_filter_map(hardware_config) -> dict[int, "FilterPath"]:
         gen = gate_cfg.qick_gen
         gate_type = str(gate_cfg.gate_type) if hasattr(gate_cfg, "gate_type") else None
 
-        # Priority: channel name → gate_type → skip
-        path_key = None
-        if str(gate_name) in paths:
-            path_key = str(gate_name)
-        elif gate_type is not None and gate_type in paths:
-            path_key = gate_type
+        # Resolve gate_scheme: gate name → gate_type → skip
+        path_name = None
+        if str(gate_name) in gate_scheme:
+            path_name = gate_scheme[str(gate_name)]
+        elif gate_type is not None and gate_type in gate_scheme:
+            path_name = gate_scheme[gate_type]
 
-        if path_key is not None:
-            filter_list = [filters[name].copy() for name in paths[path_key]]
-            _filter_map[gen] = FilterPath(filter_conf=filter_list)
-            logger.info("Filter path '%s' assigned to gen %d (%s).", path_key, gen, gate_name)
+        if path_name is None or path_name == "none":
+            logger.debug("No filter path for gen %d (%s).", gen, gate_name)
+            continue
+
+        if path_name not in paths:
+            logger.warning("gate_scheme references path '%s' for %s, but it is not defined in paths.",
+                           path_name, gate_name)
+            continue
+
+        filter_list = [filters[name].copy() for name in paths[path_name]]
+        _filter_map[gen] = FilterPath(filter_conf=filter_list)
+        logger.info("Filter path '%s' assigned to gen %d (%s).", path_name, gen, gate_name)
 
     return _filter_map
 
@@ -179,9 +207,10 @@ class FilterButterworth(Filter):
     with different DAC rates.
     """
 
-    def __init__(self, order=5, cutoff=0.5):
+    def __init__(self, order=5, cutoff=0.5, zero_phase=True):
         self.order = order
         self.cutoff = cutoff
+        self.zero_phase = zero_phase
 
     def apply(self, wf, **kwargs):
         """Apply the Butterworth filter to the input waveform.
@@ -193,7 +222,10 @@ class FilterButterworth(Filter):
         if fs is None:
             raise ValueError("Filter_Butterworth.apply requires fs (sampling frequency).")
         b, a = signal.butter(self.order, self.cutoff, fs=fs)
-        return signal.filtfilt(b, a, wf)
+        if self.zero_phase:
+            return signal.filtfilt(b, a, wf)
+        else:
+            return signal.lfilter(b, a, wf)
 
 
 class FilterFIR(Filter):
