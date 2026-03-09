@@ -1,6 +1,7 @@
 """Helpful functions and enums for commonly used key word arguements within spinqick functions."""
 
-from enum import StrEnum, auto
+from enum import StrEnum, Enum, auto
+from spinqick.helper_functions.filter_bank import Filter_Butterworth, Filter_FIR, Filter_IIR, Filter_Tukey
 
 
 class AverageLevel(StrEnum):
@@ -13,6 +14,13 @@ class ExchangeAxis(StrEnum):
     N = auto()
     M = auto()
     Z = auto()
+
+
+class FilterTypes(Enum):
+    BUTTERWORTH = Filter_Butterworth
+    FIR = Filter_FIR
+    IIR = Filter_IIR
+    TUKEY = Filter_Tukey
 
 
 class GateNames(StrEnum):
