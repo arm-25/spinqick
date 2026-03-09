@@ -32,6 +32,7 @@ class FilterSettings(pydantic_settings.BaseSettings):
 
 
 file_settings = FileSettings()
+
 if file_settings.filter_config is not None:
     json_string = Path(file_settings.filter_config).read_text()
     filter_settings = FilterSettings.model_validate_json(json_string)
