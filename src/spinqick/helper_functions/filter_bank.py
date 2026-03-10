@@ -1,6 +1,14 @@
 """
 File for managing filter types/settings and applying them to waveforms.
 
+Unit convention
+~~~~~~~~~~~~~~~
+``soccfg`` returns sampling frequencies in **MHz**.  ``FilterPath.apply()``
+converts ``fs`` from MHz to **Hz** at the boundary so that all filter
+internals and config values (e.g. Butterworth ``cutoff``) use base SI
+units.  Delays are specified in **nanoseconds** in the config and
+converted internally.
+
 To add a filter: 
     1. Define new filter class in bottom section of the file (filters are alphabetized).
     2. In spinqick_enums.py add the new enum to FilterTypes
@@ -90,8 +98,15 @@ class FilterPath():
         :param wf: The input waveform to filter.
         :param pre: The number of times to repeat the waveform before the original waveform. If None, no pre-padding will be applied before filtering.
         :param post: The number of times to repeat the waveform after the original waveform. If None, no post-padding will be applied before filtering.
-        :param kwargs: Additional keyword arguments passed to each filter's apply method (e.g., fs).
+        :param kwargs: Additional keyword arguments passed to each filter's apply method.
+            ``fs`` is expected in MHz (as returned by soccfg) and is
+            converted to Hz here so all filter internals and config
+            values use base SI units.
         """
+        # Convert fs from MHz (soccfg convention) to Hz (SI) at the boundary
+        if "fs" in kwargs:
+            kwargs = {**kwargs, "fs": kwargs["fs"] * 1e6}
+
         wf_extended = wf
         if pre is not None:
             for i in range(pre):
@@ -198,13 +213,11 @@ def get_filter_path(ch: int) -> "FilterPath | None":
     """
     return _filter_map.get(ch)
 
+### ------------- Filters defined below ------------- ###
 
 class FilterButterworth(Filter):
-    """Class for applying a Butterworth filter to a waveform.
-
-    The sampling frequency (fs) is not stored at init time — it is passed
-    at apply time so the same filter definition works across generators
-    with different DAC rates.
+    """
+    Class for applying a Butterworth filter to a waveform.
     """
 
     def __init__(self, order=5, cutoff=0.5, zero_phase=True):
@@ -216,11 +229,12 @@ class FilterButterworth(Filter):
         """Apply the Butterworth filter to the input waveform.
 
         :param wf: The input waveform.
-        :param fs: Sampling frequency in Hz (required). Typically from soccfg["gens"][gen]["f_dds"].
+        :param fs: Sampling frequency in Hz (required).  Converted from
+            MHz by :meth:`FilterPath.apply` before reaching here.
         """
         fs = kwargs.get("fs")
         if fs is None:
-            raise ValueError("Filter_Butterworth.apply requires fs (sampling frequency).")
+            raise ValueError("FilterButterworth.apply requires fs (sampling frequency in Hz).")
         b, a = signal.butter(self.order, self.cutoff, fs=fs)
         if self.zero_phase:
             return signal.filtfilt(b, a, wf)
@@ -237,6 +251,60 @@ class FilterFIR(Filter):
     def apply(self, wf, **kwargs):
         """Apply the FIR filter to the input waveform."""
         return signal.convolve(wf, self.taps, mode="same")
+
+
+class FilterFractionalDelay(Filter):
+    """Shift a waveform by a sub-sample amount using a windowed-sinc FIR.
+
+    This implements the sub-sample time shifting technique used in qubit
+    shuttling experiments (van Riggelen-Doelman et al., Nat. Commun. 15,
+    5716 (2024)), generalized from edge-only interpolation to arbitrary
+    waveform shapes via a fractional-delay FIR filter.
+
+    The delay is specified in nanoseconds in the filter config.  At apply
+    time the DAC sampling frequency ``fs`` (in MHz) is used to convert to
+    fractional samples.
+
+    :param delay_ns: Desired time shift in nanoseconds.  Positive values
+        delay the waveform (shift right); negative values advance it
+        (shift left).
+    :param num_taps: Number of FIR taps (forced odd).  More taps give a
+        more accurate shift at the cost of needing more edge padding.
+        Default 21.
+    :param window: Window function name accepted by
+        ``scipy.signal.get_window``.  Default ``"hamming"``.
+    """
+
+    def __init__(self, delay_ns: float = 0.0, num_taps: int = 21, window: str = "hamming"):
+        self.delay_ns = delay_ns
+        # Ensure odd tap count so the kernel is symmetric about its centre
+        self.num_taps = num_taps if num_taps % 2 == 1 else num_taps + 1
+        self.window = window
+
+    def apply(self, wf, **kwargs):
+        """Apply the fractional delay to the input waveform.
+
+        :param wf: The input waveform array.
+        :param fs: Sampling frequency in Hz (required).  Converted from
+            MHz by :meth:`FilterPath.apply` before reaching here.
+        """
+        fs = kwargs.get("fs")
+        if fs is None:
+            raise ValueError(
+                "FilterFractionalDelay.apply requires fs (sampling frequency in Hz)."
+            )
+
+        # Convert nanosecond delay to fractional samples.
+        # delay_samples = delay_ns × 1e-9 s/ns × fs Hz = delay_ns × fs × 1e-9
+        delay_samples = self.delay_ns * 1e-9 * fs
+
+        # Build windowed-sinc kernel centred on the fractional delay
+        M = self.num_taps // 2
+        n = np.arange(self.num_taps) - M  # -M … 0 … +M
+        kernel = np.sinc(n - delay_samples) * signal.get_window(self.window, self.num_taps)
+        kernel /= kernel.sum()  # normalise to preserve DC gain
+
+        return signal.convolve(wf, kernel, mode="same")
 
 
 class FilterIIR(Filter):
@@ -259,4 +327,4 @@ class FilterTukey(Filter):
 
     def apply(self, wf, **kwargs):
         """Apply the Tukey window to the input waveform."""
-        return wf * signal.tukey(len(wf), self.alpha)
+        return wf * signal.windows.tukey(len(wf), self.alpha)
