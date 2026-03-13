@@ -27,17 +27,17 @@ The filter config is a JSON file with three sections:
 **filters**
    A dictionary of named filter definitions.  Each entry specifies a
    ``"type"`` (matching a ``FilterTypes`` enum value) and any parameters
-   for that filter. Refer to the filter_bank.py docstrings for details on 
+   for that filter. Refer to the filter_bank.py docstrings for details on
    each filter type, how to structure the config for it, and its parameters.
 
    Note: a kwarg path is available to help implement modified filter behavior
    of existing filters if users need to get more arguments from config to the
-   underlying scipy signal functions. 
+   underlying scipy signal functions.
 
 **paths**
    A dictionary of named filter paths.  Each path is an ordered list of
    filter names from the ``filters`` section.  Filters are applied left
-   to right. 
+   to right.
 
 **gate_scheme**
    Maps gate names or gate types to a path name.  When
@@ -268,7 +268,7 @@ Gate scheme mapping
 -------------------
 
 The ``gate_scheme`` section connects hardware channels to filter paths.
-Gate name takes priority over gate type, therefore ``build_filter_map()`` 
+Gate name takes priority over gate type, therefore ``build_filter_map()``
 resolves each channel by checking (in order):
 
 1. The gate **name** (e.g. ``"X2"``) in ``gate_scheme``.
@@ -295,7 +295,7 @@ Using FilterPath directly
 -------------------------
 
 You can also construct a ``FilterPath`` in code without a config file
-for specific cases or experiments for instances where you won't be using 
+for specific cases or experiments for instances where you won't be using
 the spinQICK standard paths for constructing waveforms:
 
 .. code-block:: python
