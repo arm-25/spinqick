@@ -144,9 +144,9 @@ def plot2_psb(sqd: spinqick_data.PsbData, x_gate: str, y_gate: str):
     :param x_gate: the name of the swept x-axis parameter from the spinqick.axes dictionary.
     :param y_gate: the name of the swept y-axis parameter from the spinqick.axes dictionary.
     """
-    xarray = sqd.axes["x"]["sweeps"][x_gate]["data"]
+    xarray = sqd.axes["x"][x_gate]["data"]
     xloop = sqd.axes["x"]["loop_no"]
-    yarray = sqd.axes["y"]["sweeps"][y_gate]["data"]
+    yarray = sqd.axes["y"][y_gate]["data"]
     yloop = sqd.axes["y"]["loop_no"]
     if sqd.threshed_data is not None:
         plot_data = sqd.threshed_data
@@ -174,7 +174,7 @@ def plot1_psb(sqd: spinqick_data.PsbData, x_gate: str, **kwargs):
     :param sqd: the spinqick data object containing the data
     :param x_gate: the name of the swept x-axis parameter, typically a gate name.
     """
-    xarray = sqd.axes["x"]["sweeps"][x_gate]["data"]
+    xarray = sqd.axes["x"][x_gate]["data"]
     if sqd.threshed_data is not None:
         plot_data = sqd.threshed_data
     elif sqd.difference_data is not None:

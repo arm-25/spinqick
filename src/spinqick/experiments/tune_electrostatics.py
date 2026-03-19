@@ -47,8 +47,8 @@ def plot_gvg_2d(
             else:
                 plot_data = np.mean(mag, axis=0)
             plot_mag = np.transpose(plot_data)
-            x_data = data.axes["x"]["sweeps"][x_gate]["data"]
-            y_data = data.axes["y"]["sweeps"][y_gate]["data"]
+            x_data = data.axes["x"][x_gate]["data"]
+            y_data = data.axes["y"][y_gate]["data"]
             fig = plot_tools.plot2_simple(
                 xarray=x_data * 1000,
                 yarray=y_data * 1000,
@@ -76,7 +76,7 @@ def plot_g_1d(
     if data.analyzed_data is not None:
         fignums = []
         for i, adc_data in enumerate(data.analyzed_data):
-            x_data = data.axes["x"]["sweeps"][gate]["data"]
+            x_data = data.axes["x"][gate]["data"]
             y_data = adc_data
             fig = plot_tools.plot1_simple(x_data, y_data[0], data.timestamp, dset_label=dset_label)
             plt.xlabel(x_label)
@@ -98,7 +98,7 @@ def add_g_1d(
     if data.analyzed_data is not None:
         for i, adc_data in enumerate(data.analyzed_data):
             plt.figure(fignums[i])
-            x_data = data.axes["x"]["sweeps"][gate]["data"]
+            x_data = data.axes["x"][gate]["data"]
             y_data = adc_data
             plot_tools.plot1_simple(
                 x_data,
@@ -118,14 +118,14 @@ def analyze_cross_caps(
     fit_type: Literal["gaussian", "abs_max", "abs_min"] = "gaussian",
 ):
     """Analysis routine for the cross capacitance experiment."""
-    slow_gate_dict = list(data_obj.axes["x"]["sweeps"])[0]
-    fast_gate_dict = list(data_obj.axes["y"]["sweeps"])[0]
+    slow_gate_dict = list(data_obj.axes["x"].keys() - {"size", "loop_no"})[0]
+    fast_gate_dict = list(data_obj.axes["y"].keys() - {"size", "loop_no"})[0]
     n_vx = data_obj.axes["x"]["size"]
     center_data = np.zeros(n_vx)
     # fit each slice (fast sweep) to a gaussian
     assert data_obj.analyzed_data is not None
     for x_pt in range(n_vx):
-        xdata = data_obj.axes["y"]["sweeps"][fast_gate_dict]["data"]
+        xdata = data_obj.axes["y"][fast_gate_dict]["data"]
         ydata = data_obj.analyzed_data[adc][0][x_pt, :]
         if fit_type == "gaussian":
             try:
@@ -144,9 +144,9 @@ def analyze_cross_caps(
         elif fit_type == "abs_min":
             center_data[x_pt] = xdata[np.argmin(ydata)]
     line = models.LinearModel()
-    pars = line.guess(center_data, x=data_obj.axes["x"]["sweeps"][slow_gate_dict]["data"])
+    pars = line.guess(center_data, x=data_obj.axes["x"][slow_gate_dict]["data"])
     try:
-        out = line.fit(center_data, pars, x=data_obj.axes["x"]["sweeps"][slow_gate_dict]["data"])
+        out = line.fit(center_data, pars, x=data_obj.axes["x"][slow_gate_dict]["data"])
         slope = out.params["slope"].value
         logger.info("slope is %f", slope)
     except Exception as exc:
@@ -697,12 +697,12 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
         analyze_cross_caps(data_obj, fit_type=fit_type)
         if self.plot:
             plt.plot(
-                data_obj.axes["x"]["sweeps"][x_gate]["data"] * 1000,
+                data_obj.axes["x"][x_gate]["data"] * 1000,
                 data_obj.best_fit * 1000,
                 "--",
             )
-            text_xcoord = data_obj.axes["x"]["sweeps"][x_gate]["data"][0] * 1000
-            y_max = data_obj.axes["y"]["sweeps"][y_gate]["data"][-1] * 1000
+            text_xcoord = data_obj.axes["x"][x_gate]["data"][0] * 1000
+            y_max = data_obj.axes["y"][y_gate]["data"][-1] * 1000
             text_ycoord = y_max - (y_max - data_obj.best_fit[0] * 1000) / 2
             plt.text(
                 text_xcoord,
@@ -711,12 +711,10 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
                 fontdict={"color": "red"},
             )
             line_fit = (
-                data_obj.fit_param_dict["slope"]
-                * data_obj.axes["x"]["sweeps"][x_gate]["data"]
-                * 1000
+                data_obj.fit_param_dict["slope"] * data_obj.axes["x"][x_gate]["data"] * 1000
                 + data_obj.fit_param_dict["intercept"] * 1000
             )
-            plt.plot(data_obj.axes["x"]["sweeps"][x_gate]["data"] * 1000, line_fit)
+            plt.plot(data_obj.axes["x"][x_gate]["data"] * 1000, line_fit)
         if self.save_data:
             ncdf = data_obj.save_data()
             if self.plot:
@@ -833,7 +831,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
         time.sleep(return_step_time * 1e-6 * n_vm)
 
         try:
-            x_data = data_obj.axes["x"]["sweeps"][m_dot]["data"]
+            x_data = data_obj.axes["x"][m_dot]["data"]
             y_data = data_obj.analyzed_data
             assert y_data is not None
             gaussian, out = analysis.fit_gaussian(x_data, y_data[0][0])
@@ -997,7 +995,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
                         dset_label=dset.experiment_name,
                     )
                 else:
-                    gatename = list(dset.axes["x"]["sweeps"].keys())
+                    gatename = list(dset.axes["x"].keys() - {"size", "loop_no"})
                     add_g_1d(
                         dset,
                         gatename[0],

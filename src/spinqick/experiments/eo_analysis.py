@@ -74,7 +74,7 @@ def course_cal_fit(sqd: spinqick_data.PsbData, n_pulses: int, x_gate: str):
     threshed_data = sqd.threshed_data
     assert threshed_data is not None
     data = threshed_data[0]
-    xvolts = sqd.axes["x"]["sweeps"][x_gate]["data"]
+    xvolts = sqd.axes["x"][x_gate]["data"]
     angle_array, d_filt, best_fit, popt, v_array, p0_array, fit_dict, _ = course_cal(
         data, xvolts, n_pulses
     )

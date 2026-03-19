@@ -4,7 +4,8 @@ import json
 import logging
 import os
 import time
-from typing import Dict, List, Sequence
+import warnings
+from typing import Any, Dict, List, Sequence
 
 import importlib_metadata
 import netCDF4
@@ -117,8 +118,9 @@ class SpinqickData:
             else:
                 unit_val = units[i]
             ax_dict[sweep] = {"data": data[i], "units": unit_val}
-        self.axes[axis_name] = {"sweeps": ax_dict, "size": dim_size, "loop_no": loop_no}
-        # TODO add a check that all sweeps added are the correct size
+        ax_dict["size"] = dim_size
+        ax_dict["loop_no"] = loop_no
+        self.axes[axis_name] = ax_dict
 
     def add_fit_params(self, param_dict: dict, best_fit: np.ndarray, fit_axis: str):
         """Add fit parameter attributes to the spinqick data object."""
@@ -126,17 +128,70 @@ class SpinqickData:
         self.best_fit = best_fit
         self.fit_axis = fit_axis
 
+    @staticmethod
+    def get_sweep_vars(axis_dict: dict) -> dict:
+        """Extract sweep variable entries from an axis dict.
+
+        Sweep variables are entries whose values are dicts containing a ``"data"`` key.
+        Metadata keys like ``"size"`` and ``"loop_no"`` are excluded.
+        """
+        return {k: v for k, v in axis_dict.items() if isinstance(v, dict) and "data" in v}
+
+    def get_config_dict(self) -> dict:
+        """Return config parameters as a plain dict, regardless of model type.
+
+        After a save → load round-trip with an unknown config model the parameters
+        end up nested under a ``"cfg"`` key. This accessor unwraps that layer so
+        callers always get the original flat dict.
+        """
+        raw: dict = json.loads(self._cfg)
+        # If the loader wrapped the original dict in a DynamicFakeConfig / InvalidConfig
+        # the structure is {"cfg": {"param_a": ..., ...}}
+        if list(raw.keys()) == ["cfg"] and isinstance(raw["cfg"], dict):
+            return raw["cfg"]
+        return raw
+
+    def to_xarray(self) -> Any:
+        """Convert to an :class:`xarray.Dataset`.
+
+        Requires *xarray* to be installed (raises :class:`ImportError` otherwise).
+        """
+        import xarray as xr  # optional dependency
+
+        coords: dict[str, np.ndarray] = {}
+        for _axis_name, axis_dict in self.axes.items():
+            for key, val in axis_dict.items():
+                if isinstance(val, dict) and "data" in val:
+                    coords[key] = np.asarray(val["data"])
+
+        coord_keys = list(coords.keys())
+        data_vars: dict[str, tuple] = {}
+        for i, raw in enumerate(self.raw_data):
+            data_vars[f"raw_data_{i}"] = (coord_keys + ["IQ"], raw)
+        if self.analyzed_data:
+            for i, ana in enumerate(self.analyzed_data):
+                data_vars[f"analyzed_{i}"] = (coord_keys, ana)
+
+        ds = xr.Dataset(data_vars, coords=coords)
+        ds.attrs["experiment_name"] = self.experiment_name
+        ds.attrs["timestamp"] = self.timestamp
+        ds.attrs["cfg"] = json.dumps(self.get_config_dict())
+        return ds
+
     def json_to_qickprog(self, soccfg):
-        """Load json string program into qick program using a known soccfg."""
-        try:
-            prog_dict = helpers.json2progs(self.prog)
-            qick_prog = asm_v2.QickProgramV2(soccfg)
-            qick_prog.load_prog(prog_dict)
-            self.prog = qick_prog
-        except TypeError:
-            print("program attribute is not in json format")
-        except Exception as exc:
-            print("An unexpected error occurred: %s", exc)
+        """Load json string program into qick program using a known soccfg.
+
+        .. deprecated::
+            Use :func:`spinqick.helper_functions.file_manager.load_qickprogram_from_json`
+            instead.
+        """
+        warnings.warn(
+            "SpinqickData.json_to_qickprog() is deprecated. "
+            "Use file_manager.json_to_qickprog() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        file_manager.json_to_qickprog(self, soccfg)
 
     def save_fit_params(self, nc_file: file_manager.SaveData):
         """Save parameters from a fit into a dict."""
@@ -188,7 +243,8 @@ class SpinqickData:
             sweep_grp = nc_group.createGroup(axis_group)
             for axis, axis_dict in self.axes.items():
                 dim_name = axis + "_dim"
-                if dim_name in nc_file.dimensions:
+                # Bug 2 fix: scope dimension check to current group, not root
+                if dim_name in nc_group.dimensions:
                     continue
                 else:
                     ax_grp = sweep_grp.createGroup(axis)
@@ -338,7 +394,7 @@ class SpinqickData:
             **kwargs,
         )
         data_obj.analysis_type = analysis_type
-        if ana_avg is not None:
+        if ana_avg:
             data_obj.analysis_averaged = ana_avg[0]
         data_obj.spinqick_version = nc_file.spinqick_version
         data_obj.axes = axes
