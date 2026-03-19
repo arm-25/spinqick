@@ -32,6 +32,11 @@ class DataHandler(ABC):
         """Load a SpinqickData object by identifier (path, run_id, etc)."""
         ...
 
+    @abstractmethod
+    def load_composite(self, identifier: str) -> CompositeSpinqickData:
+        """Load a CompositeSpinqickData object by identifier."""
+        ...
+
     # Shared helpers available to all backends:
     @staticmethod
     def get_sweep_vars(axis_dict: dict) -> dict:
