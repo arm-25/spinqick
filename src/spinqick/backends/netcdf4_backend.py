@@ -243,10 +243,7 @@ class NetCDF4Handler(DataHandler):
         return nc_file
 
     def _save_fit_params(self, data: SpinqickData, nc_file: file_manager.SaveData) -> None:
-        """Save fit parameters.
-
-        1-to-1 extraction of ``SpinqickData.save_fit_params()``.
-        """
+        """Save fit parameters."""
         fit_grp = nc_file.createGroup("fits")
         if data.fit_param_dict is not None:
             nc_file.groups["fits"].setncatts(data.fit_param_dict)
@@ -263,10 +260,7 @@ class NetCDF4Handler(DataHandler):
         nc_file: file_manager.SaveData,
         nest_in_group: str | None = None,
     ) -> None:
-        """Save voltage state as a JSON string attribute.
-
-        1-to-1 extraction of ``SpinqickData.save_voltage_data()``.
-        """
+        """Save voltage state as a JSON string attribute."""
         vstate_json = json.dumps(data.voltage_state)
         if nest_in_group is not None:
             nc_file[nest_in_group].voltage_state = vstate_json
@@ -276,73 +270,93 @@ class NetCDF4Handler(DataHandler):
     def _save_difference_data(self, data: PsbData, ncdf: file_manager.SaveData) -> None:
         """Save difference data.
 
-        1-to-1 extraction of ``PsbData.save_difference_data()``.
+        :meth:`_save_data_group`.
         """
-        adc_ind = 0
         ana_group = ncdf["analyzed_data"]
         if data.difference_avged is not None:
             ana_group.difference_avged = data.difference_avged
-        ana_dims = ana_group.variables["analyzed_" + str(adc_ind)].dimensions
-        if data.difference_data is not None:
-            for array in data.difference_data:
-                axes_names_diff = []
-                for axis in ana_dims:
-                    ax = axis.strip("_dim")
-                    if ax == "point_avgs":
-                        if data.difference_avged not in ["inner", "both"]:
-                            axes_names_diff.append("point_avgs")
-                    elif ax == "full_avgs":
-                        if data.difference_avged not in ["outer", "both"]:
-                            axes_names_diff.append("full_avgs")
-                    else:
-                        if ax != "triggers":
-                            axes_names_diff.append(ax)
-
-                ncdf.add_dataset(
-                    "difference_" + str(adc_ind),
-                    axes_names_diff,
-                    array,
-                    group_path=ana_group.path,
-                )
-                adc_ind += 1
+        source_dims = ana_group.variables["analyzed_0"].dimensions
+        assert data.difference_data is not None
+        self._save_data_group(
+            ncdf,
+            ana_group,
+            data.difference_data,
+            source_dims,
+            data.difference_avged,
+            prefix="difference",
+        )
 
     def _save_threshed_data(self, data: PsbData, ncdf: file_manager.SaveData) -> None:
         """Save thresholded data.
 
-        1-to-1 extraction of ``PsbData.save_threshed_data()``.
+        :meth:`_save_data_group`.
         """
-        adc_ind = 0
         ana_group = ncdf["analyzed_data"]
         if data.thresh_avged is not None:
             ana_group.thresh_avged = data.thresh_avged
         if data.difference_data is not None:
-            ana_dims = ana_group.variables["difference_" + str(adc_ind)].dimensions
+            source_dims = ana_group.variables["difference_0"].dimensions
         else:
-            ana_dims = ana_group.variables["analyzed_" + str(adc_ind)].dimensions
-        if data.threshed_data is not None:
-            for array in data.threshed_data:
-                axes_names = []
-                for axis in ana_dims:
-                    ax = axis.strip("_dim")
-                    if ax == "point_avgs":
-                        if data.thresh_avged not in ["inner", "both"]:
-                            axes_names.append("point_avgs")
-                    elif ax == "full_avgs":
-                        if data.thresh_avged not in ["outer", "both"]:
-                            axes_names.append("full_avgs")
-                    else:
-                        if ax != "triggers":
-                            axes_names.append(ax)
-                dset_name = "threshed_" + str(adc_ind)
-                ncdf.add_dataset(
-                    "threshed_" + str(adc_ind),
-                    axes_names,
-                    array,
-                    group_path=ana_group.path,
-                )
-                assert data.threshold
-                ana_group[dset_name].threshold = data.threshold[adc_ind]
-                adc_ind += 1
+            source_dims = ana_group.variables["analyzed_0"].dimensions
+        assert data.threshed_data is not None
+        self._save_data_group(
+            ncdf,
+            ana_group,
+            data.threshed_data,
+            source_dims,
+            data.thresh_avged,
+            prefix="threshed",
+            thresholds=data.threshold,
+        )
+
+    @staticmethod
+    def _filter_dims(
+        source_dims: tuple[str, ...],
+        avg_level: str | None,
+        drop_triggers: bool = True,
+    ) -> list[str]:
+        """Build a filtered axis-name list from netCDF dimension names.
+
+        Strips ``_dim`` suffixes and drops axes that have been averaged away
+        (``point_avgs``/``full_avgs``) or are not relevant (``triggers``).
+        """
+        filtered: list[str] = []
+        for dim in source_dims:
+            ax = dim.removesuffix("_dim")
+            if ax == "point_avgs" and avg_level in ("inner", "both"):
+                continue
+            if ax == "full_avgs" and avg_level in ("outer", "both"):
+                continue
+            if drop_triggers and ax == "triggers":
+                continue
+            filtered.append(ax)
+        return filtered
+
+    @staticmethod
+    def _save_data_group(
+        ncdf: file_manager.SaveData,
+        ana_group: netCDF4.Group,
+        data_arrays: list[np.ndarray],
+        source_dims: tuple[str, ...],
+        avg_level: str | None,
+        prefix: str,
+        thresholds: list[float] | None = None,
+    ) -> None:
+        """Write a list of arrays into the analyzed_data group.
+
+        Shared implementation for difference and thresholded data saving.
+        """
+        axes_names = NetCDF4Handler._filter_dims(source_dims, avg_level, drop_triggers=True)
+        for adc_ind, array in enumerate(data_arrays):
+            dset_name = f"{prefix}_{adc_ind}"
+            ncdf.add_dataset(
+                dset_name,
+                axes_names,
+                array,
+                group_path=ana_group.path,
+            )
+            if thresholds is not None:
+                ana_group[dset_name].threshold = thresholds[adc_ind]
 
     # -- internal load methods ------------------------------------------------
 
