@@ -22,6 +22,7 @@ class FileSettings(pydantic_settings.BaseSettings):
     hardware_config: str = ""
     dot_experiment_config: str = ""
     filter_config: Optional[str] = None
+    data_backend: str = "netcdf"
 
 
 class FilterSettings(pydantic_settings.BaseSettings):

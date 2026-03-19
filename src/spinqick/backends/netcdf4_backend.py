@@ -18,6 +18,7 @@ import numpy as np
 import pydantic
 from qick import helpers, qick_asm
 
+from spinqick.backends import register_backend
 from spinqick.backends.data_protocols import DataHandler
 from spinqick.helper_functions import file_manager
 from spinqick.models import experiment_models
@@ -514,3 +515,7 @@ class NetCDF4Handler(DataHandler):
             timestamp=nc_file.timestamp,
         )
         return data_obj
+
+
+"Register netcdf4 handler as a useable data backend in SpinQICK."
+register_backend("NetCDF4", NetCDF4Handler)
