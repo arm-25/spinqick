@@ -12,11 +12,9 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-import importlib_metadata
 import netCDF4
 import numpy as np
 import pydantic
-from qick import helpers, qick_asm
 
 from spinqick.backends import register_backend
 from spinqick.backends.data_protocols import DataHandler
@@ -156,11 +154,11 @@ class NetCDF4Handler(DataHandler):
             nc_group: netCDF4.Group | file_manager.SaveData = nc_file
         else:
             nc_group = nc_file.createGroup(nest_in_group)
-        nc_group.timestamp = data.timestamp
-        nc_group.cfg_type = data.cfg_class
-        nc_group.experiment_name = data.experiment_name
-        data.spinqick_version = importlib_metadata.version("spinqick")
-        nc_group.spinqick_version = data.spinqick_version
+        meta = data.metadata
+        nc_group.timestamp = meta["timestamp"]
+        nc_group.cfg_type = meta["cfg_type"]
+        nc_group.experiment_name = meta["experiment_name"]
+        nc_group.spinqick_version = meta["spinqick_version"]
         ### start by saving raw data
         if data.axes:
             axis_group = "swept_variables"
@@ -214,8 +212,8 @@ class NetCDF4Handler(DataHandler):
         if data.analyzed_data:
             ana_group = nc_group.createGroup("analyzed_data")
             adc_ind = 0
-            if data.analysis_averaged is not None:
-                ana_group.analysis_avged = data.analysis_averaged
+            if "analysis_avged" in meta:
+                ana_group.analysis_avged = meta["analysis_avged"]
             for array in data.analyzed_data:
                 axes_names_analyzed = []
                 for axis in axes_names:
@@ -237,40 +235,36 @@ class NetCDF4Handler(DataHandler):
                     units=data.analysis_type,
                 )
                 adc_ind += 1
-        if data.fit_param_dict:
-            self._save_fit_params(data, nc_file)
-        nc_group.cfg = data._cfg
+        if "fit_params" in meta:
+            self._save_fit_params(meta["fit_params"], nc_file)
+        nc_group.cfg = meta["cfg_json"]
 
-        if isinstance(data.prog, str):
-            nc_file.prog = data.prog
-        elif isinstance(data.prog, qick_asm.AbsQickProgram):
-            prog_dict = data.prog.dump_prog()
-            prog_json = helpers.progs2json(prog_dict)
-            nc_file.prog = prog_json
-        if data.voltage_state is not None:
-            self._save_voltage_data(data, nc_file, nest_in_group=nest_in_group)
+        if "prog" in meta:
+            nc_file.prog = meta["prog"]
+        if "voltage_state" in meta:
+            self._save_voltage_data(meta["voltage_state"], nc_file, nest_in_group=nest_in_group)
         return nc_file
 
-    def _save_fit_params(self, data: SpinqickData, nc_file: file_manager.SaveData) -> None:
-        """Save fit parameters."""
+    def _save_fit_params(self, fit_params: dict[str, Any], nc_file: file_manager.SaveData) -> None:
+        """Save fit parameters from the metadata dict."""
         fit_grp = nc_file.createGroup("fits")
-        if data.fit_param_dict is not None:
-            nc_file.groups["fits"].setncatts(data.fit_param_dict)
+        if fit_params["fit_param_dict"]:
+            nc_file.groups["fits"].setncatts(fit_params["fit_param_dict"])
         nc_file.add_dataset(
             "best_fit",
-            axes=[data.fit_axis],
-            data=data.best_fit,
+            axes=[fit_params["fit_axis"]],
+            data=fit_params["best_fit"],
             group_path=fit_grp.path,
         )
 
     def _save_voltage_data(
         self,
-        data: SpinqickData,
+        voltage_state: dict[str, float],
         nc_file: file_manager.SaveData,
         nest_in_group: str | None = None,
     ) -> None:
         """Save voltage state as a JSON string attribute."""
-        vstate_json = json.dumps(data.voltage_state)
+        vstate_json = json.dumps(voltage_state)
         if nest_in_group is not None:
             nc_file[nest_in_group].voltage_state = vstate_json
         else:

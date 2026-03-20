@@ -10,7 +10,7 @@ import importlib_metadata
 import netCDF4
 import numpy as np
 import pydantic
-from qick import qick_asm
+from qick import helpers, qick_asm
 
 from spinqick.helper_functions import file_manager, spinqick_enums
 
@@ -176,30 +176,62 @@ class SpinqickData:
         ds.attrs["cfg"] = json.dumps(self.get_config_dict())
         return ds
 
-    def save_fit_params(self, nc_file: file_manager.SaveData):
-        """Save parameters from a fit into a dict."""
-        fit_grp = nc_file.createGroup("fits")
-        if self.fit_param_dict is not None:
-            nc_file.groups["fits"].setncatts(self.fit_param_dict)
-        nc_file.add_dataset(
-            "best_fit",
-            axes=[self.fit_axis],
-            data=self.best_fit,
-            group_path=fit_grp.path,
-        )
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Structured metadata dict for backend persistence.
 
-    def save_voltage_data(
-        self,
-        nc_file: file_manager.SaveData,
-        nest_in_group: None | str = None,
-    ):
-        """Saves the all_voltages output from the hardware manager as json string."""
-        vstate_json = json.dumps(self.voltage_state)
-        if nest_in_group is not None:
-            nc_file[nest_in_group].voltage_state = vstate_json
-        else:
-            nc_file.voltage_state = vstate_json
-        return nc_file
+        Backends should persist all non-``None`` values.  The structure is:
+
+        Identity (always present):
+            timestamp: int            — epoch timestamp of experiment
+            experiment_name: str      — experiment method name
+            cfg: dict                 — configuration dict (via :meth:`get_config_dict`)
+            cfg_json: str             — raw JSON string from pydantic (for backends
+                                        that store config as a string attribute)
+            cfg_type: str             — original config class name
+            spinqick_version: str     — package version string
+
+        Conditional (present when set):
+            prog: str | None          — QICK program JSON
+            voltage_state: dict | None — DC voltage state snapshot
+            analysis_avged: AverageLevel | None — averaging level applied
+
+        Fit results (present when ``fit_param_dict`` is truthy):
+            fit_params: dict          — {
+                "fit_param_dict": dict[str, float] — named fit parameters,
+                "best_fit": ndarray               — best-fit curve data,
+                "fit_axis": str                   — axis label for best_fit,
+            }
+
+        ``best_fit`` is included here (rather than treated as a separate data
+        array like ``raw_data``) because it is a *derived* result from fitting,
+        not a *measured* result.  Grouping it with the scalar fit parameters
+        keeps all fit results discoverable from a single entry point.
+        """
+        meta: dict[str, Any] = {
+            "timestamp": self.timestamp,
+            "experiment_name": self.experiment_name,
+            "cfg": self.get_config_dict(),
+            "cfg_json": self._cfg,
+            "cfg_type": self.cfg_class,
+            "spinqick_version": self.spinqick_version,
+        }
+        if self.prog is not None:
+            if isinstance(self.prog, qick_asm.AbsQickProgram):
+                meta["prog"] = helpers.progs2json(self.prog.dump_prog())
+            else:
+                meta["prog"] = self.prog
+        if self.voltage_state is not None:
+            meta["voltage_state"] = self.voltage_state
+        if self.analysis_averaged is not None:
+            meta["analysis_avged"] = self.analysis_averaged
+        if self.fit_param_dict:
+            meta["fit_params"] = {
+                "fit_param_dict": self.fit_param_dict,
+                "best_fit": self.best_fit,
+                "fit_axis": self.fit_axis,
+            }
+        return meta
 
     def load_to_fake_config(self, json_cfg):
         DynamicFakeConfig = pydantic.create_model("DynamicFakeConfig", cfg=dict)
@@ -215,6 +247,18 @@ class PsbData(SpinqickData):
         self.thresh_avged: spinqick_enums.AverageLevel | None = None
         self.threshed_data: List[np.ndarray] | None = None
         self.threshold: List[float] | None
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Extend base metadata with PSB-specific fields."""
+        meta = super().metadata
+        if self.threshold is not None:
+            meta["threshold"] = self.threshold
+        if self.difference_avged is not None:
+            meta["difference_avged"] = self.difference_avged
+        if self.thresh_avged is not None:
+            meta["thresh_avged"] = self.thresh_avged
+        return meta
 
 
 class CompositeSpinqickData:
