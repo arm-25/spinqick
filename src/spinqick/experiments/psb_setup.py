@@ -215,11 +215,7 @@ class PsbSetup(dot_experiment.DotExperiment):
                     except RuntimeError:
                         logger.error("fit failed")
 
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
 
         return sq_data
 
@@ -335,11 +331,7 @@ class PsbSetup(dot_experiment.DotExperiment):
             idle_x = qubits[self.qubit].ro_cfg.psb_cfg.idle.gate_list[px_gate].voltage
             idle_y = qubits[self.qubit].ro_cfg.psb_cfg.idle.gate_list[py_gate].voltage
             plt.plot([idle_x], [idle_y], "o")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -446,11 +438,7 @@ class PsbSetup(dot_experiment.DotExperiment):
             f_x = qubits[self.qubit].ro_cfg.psb_cfg.flush.gate_list[px_gate].voltage
             f_y = qubits[self.qubit].ro_cfg.psb_cfg.flush.gate_list[py_gate].voltage
             plt.plot([f_x], [f_y], "o")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -559,9 +547,5 @@ class PsbSetup(dot_experiment.DotExperiment):
             f_x = qubits[self.qubit].ro_cfg.psb_cfg.meas.gate_list[px_gate].voltage
             f_y = qubits[self.qubit].ro_cfg.psb_cfg.meas.gate_list[py_gate].voltage
             plt.plot([f_x], [f_y], "o")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data

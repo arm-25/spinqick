@@ -125,11 +125,10 @@ class MeasureNoise(dot_experiment.DotExperiment):
 
         self.vdc.set_dc_voltage(current_m_bias, m_dot)
         if self.save_data:
-            nc_file = full_dataset.basic_composite_save()
+            plot_figs: list[int | None] = []
             if self.plot:
-                nc_file.save_last_plot(fignum=full_plot_num)
-            nc_file.close()
-            logger.info("data saved at %s", full_dataset.data_file)
+                plot_figs.append(full_plot_num)
+            self.finalize(full_dataset, fignums=plot_figs if plot_figs else None, composite=True)
         return qd
 
     @dot_experiment.updater
@@ -308,13 +307,16 @@ class MeasureNoise(dot_experiment.DotExperiment):
             full_plot_num = fig.number
 
         if self.save_data:
-            nc_file = full_dataset.basic_composite_save()
+            plot_figs_stability: list[int | None] = []
             if self.plot:
-                nc_file.save_last_plot(fignum=full_plot_num)
+                plot_figs_stability.append(full_plot_num)
                 if frequency_fit:
-                    nc_file.save_last_plot(fignum=freq_plot_num)
-            nc_file.close()
-            logger.info("data saved at %s", full_dataset.data_file)
+                    plot_figs_stability.append(freq_plot_num)
+            self.finalize(
+                full_dataset,
+                fignums=plot_figs_stability if plot_figs_stability else None,
+                composite=True,
+            )
         return full_dataset
 
     @dot_experiment.updater

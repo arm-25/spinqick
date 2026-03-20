@@ -37,6 +37,16 @@ class DataHandler(ABC):
         """Load a CompositeSpinqickData object by identifier."""
         ...
 
+    @abstractmethod
+    def save_plot(self, handle: Any, fignum: int | None = None) -> None:
+        """Save a matplotlib figure to the dataset identified by *handle*."""
+        ...
+
+    @abstractmethod
+    def close(self, handle: Any) -> None:
+        """Close / finalise the dataset identified by *handle*."""
+        ...
+
     # Shared helpers available to all backends:
     @staticmethod
     def get_sweep_vars(axis_dict: dict) -> dict:

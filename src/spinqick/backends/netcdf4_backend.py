@@ -98,6 +98,14 @@ class NetCDF4Handler(DataHandler):
         logger.info("data saved at %s", data.data_file)
         return nc_file
 
+    def save_plot(self, handle: file_manager.SaveData, fignum: int | None = None) -> None:
+        """Save the current (or specified) matplotlib figure as a PNG alongside the dataset."""
+        handle.save_last_plot(fignum=fignum)
+
+    def close(self, handle: file_manager.SaveData) -> None:
+        """Close the underlying netCDF4 dataset."""
+        handle.close()
+
     # -- public load methods --------------------------------------------------
 
     def load(self, identifier: str, load_psb: bool = False) -> SpinqickData:

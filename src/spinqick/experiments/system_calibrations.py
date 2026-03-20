@@ -96,9 +96,8 @@ class SystemCalibrations(dot_experiment.DotExperiment):
                     plt.xlabel("adc trigger delay (us)")
                     fignums.append(fig.number)
         if self.save_data:
-            nc_file = data_obj.save_data()
+            plot_figs: list[int | None] = []
             if self.plot:
-                for num in fignums:
-                    nc_file.save_last_plot(fignum=num)
-            nc_file.close()
+                plot_figs = fignums
+            self.finalize(data_obj, fignums=plot_figs if plot_figs else None)
         return data_obj

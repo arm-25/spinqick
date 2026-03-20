@@ -253,11 +253,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
                 adc_units=self.adc_units[0],
             )
 
-        if self.save_data:
-            save_obj = data_obj.save_data()
-            if self.plot:
-                save_obj.save_last_plot()
-            save_obj.close()
+        self.finalize(data_obj)
 
         return data_obj
 
@@ -517,11 +513,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
             )
 
         if save_data:
-            ncdf = data_obj.save_data()
-            if self.plot:
-                ncdf.save_last_plot()
-            ncdf.close()
-            logger.info("data saved at %s", data_obj.data_file)
+            self.finalize(data_obj)
 
         return data_obj
 
@@ -716,11 +708,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
             )
             plt.plot(data_obj.axes["x"][x_gate]["data"] * 1000, line_fit)
         if self.save_data:
-            ncdf = data_obj.save_data()
-            if self.plot:
-                ncdf.save_last_plot()
-            ncdf.close()
-            logger.info("data saved at %s", data_obj.data_file)
+            self.finalize(data_obj)
         return data_obj
 
     def tune_mz(
@@ -874,12 +862,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
             plt.plot([best_v], [gaussian.eval(out.params, x=best_v)], "o")  # type: ignore
             plt.title("retune dcs")
 
-        if self.save_data:
-            nc_file = data_obj.save_data()
-            if self.plot:
-                nc_file.save_last_plot()
-            nc_file.close()
-            logger.info("data saved at %s", data_obj.data_file)
+        self.finalize(data_obj)
 
         return data_obj
 
@@ -1009,11 +992,15 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
                     plt.legend()
 
         if self.save_data:
-            nc_file = qd_composite.basic_composite_save()
+            plot_figs: list[int | None] = []
             if self.plot:
                 for adc in fignums:
-                    nc_file.save_last_plot(fignum=adc)
-            nc_file.close()
+                    plot_figs.append(adc)
+            self.finalize(
+                qd_composite,
+                fignums=plot_figs if plot_figs else None,
+                composite=True,
+            )
         return qd_composite
 
     @dot_experiment.updater
@@ -1124,11 +1111,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
             adc_units = self.adc_units[0]
             plot_g_1d(qd, gates[0], x_label, "%s (%s)" % (mode, adc_units))
 
-        if self.save_data:
-            nc_file = qd.save_data()
-            if self.plot:
-                nc_file.save_last_plot()
-            nc_file.close()
+        self.finalize(qd)
         return qd
 
     def gate_turn_on(
@@ -1273,12 +1256,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
             plt.ylabel(" %s voltage (V)" % gate)
             plt.xlabel("rfsoc dac gain")
 
-        if self.save_data:
-            nc_file = full_dataset.basic_composite_save()
-            if self.plot:
-                nc_file.save_last_plot()
-            nc_file.close()
-            logger.info("data saved at %s", full_dataset.data_file)
+        self.finalize(full_dataset, composite=True)
         return full_dataset
 
     @dot_experiment.updater
@@ -1400,12 +1378,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
             plt.xlabel("rfsoc dac freq")
             plt.xscale("log")
 
-        if self.save_data:
-            nc_file = full_dataset.basic_composite_save()
-            if self.plot:
-                nc_file.save_last_plot()
-            nc_file.close()
-            logger.info("data saved at %s", full_dataset.data_file)
+        self.finalize(full_dataset, composite=True)
         return full_dataset
 
     @dot_experiment.updater
@@ -1477,10 +1450,5 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
         if self.plot:
             plot_g_1d(qd, gate, " %s voltage (V)" % gate, "conductance")
 
-        if self.save_data:
-            nc_file = qd.save_data()
-            if self.plot:
-                nc_file.save_last_plot()
-            nc_file.close()
-            logger.info("data saved at %s", qd.data_file)
+        self.finalize(qd)
         return qd

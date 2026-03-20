@@ -133,11 +133,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             analysis.calculate_thresholded(sq_data, [ro_cfg.threshold])
         if self.plot:
             plot_tools.plot2_psb(sq_data, px_gate, py_gate)
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return data
 
     @dot_experiment.updater
@@ -215,11 +211,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.xlabel("applied frequency (MHz)")
             plt.ylabel("singlet probability")
             plt.title("frequency scan")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -305,11 +297,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.ylabel("time (us)")
             plt.xlabel("frequency (MHz)")
             plt.title("rabi chevron")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -376,11 +364,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.xlabel("evolution time (microseconds)")
             plt.ylabel("singlet probability")
             plt.title("time rabi")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -448,11 +432,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.xlabel("rf gain (dac units)")
             plt.ylabel("singlet probability")
             plt.title("amplitude rabi")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -539,11 +519,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.xlabel("gates")
             plt.ylabel("singlet probability")
             plt.title("allxy")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -612,11 +588,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.xlabel("applied rf phase offset (radians)")
             plt.ylabel("singlet probability")
             plt.title("phase control")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -682,11 +654,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.xlabel("pulse delay time (us)")
             plt.ylabel("singlet probability")
             plt.title("ramsey fringe")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -772,11 +740,7 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.ylabel("time between pulses (us)")
             plt.xlabel("frequency (MHz)")
             plt.title("ramsey")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
 
     @dot_experiment.updater
@@ -844,9 +808,5 @@ class LDSingleQubit(dot_experiment.DotExperiment):
             plt.xlabel("evolution time (microseconds)")
             plt.ylabel("singlet probability")
             plt.title("spin echo")
-        if self.save_data:
-            nc = sq_data.save_data()
-            if self.plot:
-                nc.save_last_plot()
-            nc.close()
+        self.finalize(sq_data)
         return sq_data
