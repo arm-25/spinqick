@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import time
-import warnings
 from typing import Any, Dict, List, Sequence
 
 import importlib_metadata
@@ -177,21 +176,6 @@ class SpinqickData:
         ds.attrs["cfg"] = json.dumps(self.get_config_dict())
         return ds
 
-    def json_to_qickprog(self, soccfg):
-        """Load json string program into qick program using a known soccfg.
-
-        .. deprecated::
-            Use :func:`spinqick.helper_functions.file_manager.load_qickprogram_from_json`
-            instead.
-        """
-        warnings.warn(
-            "SpinqickData.json_to_qickprog() is deprecated. "
-            "Use file_manager.json_to_qickprog() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        file_manager.json_to_qickprog(self, soccfg)
-
     def save_fit_params(self, nc_file: file_manager.SaveData):
         """Save parameters from a fit into a dict."""
         fit_grp = nc_file.createGroup("fits")
@@ -217,63 +201,10 @@ class SpinqickData:
             nc_file.voltage_state = vstate_json
         return nc_file
 
-    def save_data(self):
-        """Save all information to a netcdf file.
-
-        .. deprecated::
-            Use the backend handler directly:
-            ``from spinqick.backends import get_backend; get_backend().save(data)``
-        """
-        warnings.warn(
-            "SpinqickData.save_data() is deprecated. " "Use get_backend().save(data) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends import get_backend
-
-        handler = get_backend()
-        return handler.save(self)
-
-    def basic_save(self, nc_file: file_manager.SaveData, nest_in_group: None | str = None):
-        """Save data from an instantiated SpinqickData object.
-
-        .. deprecated::
-            Use the backend handler directly.
-        """
-        warnings.warn(
-            "SpinqickData.basic_save() is deprecated. " "Use get_backend().save(data) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends.netcdf4_backend import NetCDF4Handler
-
-        handler = NetCDF4Handler()
-        handler._basic_save(self, nc_file, nest_in_group=nest_in_group)
-        return nc_file
-
     def load_to_fake_config(self, json_cfg):
         DynamicFakeConfig = pydantic.create_model("DynamicFakeConfig", cfg=dict)
         python_dict = json.loads(json_cfg)
         return DynamicFakeConfig(cfg=python_dict)
-
-    @classmethod
-    def load_spinqick_data(cls, nc_file: netCDF4.Dataset, **kwargs):
-        """Load data from netcdf dataset to spinqickdata.
-
-        .. deprecated::
-            Use the backend handler directly:
-            ``from spinqick.backends import get_backend; get_backend().load(path)``
-        """
-        warnings.warn(
-            "SpinqickData.load_spinqick_data() is deprecated. "
-            "Use get_backend().load(path) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends.netcdf4_backend import NetCDF4Handler
-
-        handler = NetCDF4Handler()
-        return handler._load_spinqick_data(nc_file, load_psb=False)
 
 
 class PsbData(SpinqickData):
@@ -284,75 +215,6 @@ class PsbData(SpinqickData):
         self.thresh_avged: spinqick_enums.AverageLevel | None = None
         self.threshed_data: List[np.ndarray] | None = None
         self.threshold: List[float] | None
-
-    def save_difference_data(self, ncdf: file_manager.SaveData):
-        """Save data from measurements with a reference measurement.
-
-        .. deprecated::
-            Use the backend handler directly.
-        """
-        warnings.warn(
-            "PsbData.save_difference_data() is deprecated. "
-            "Use get_backend().save(data) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends.netcdf4_backend import NetCDF4Handler
-
-        handler = NetCDF4Handler()
-        handler._save_difference_data(self, ncdf)
-
-    def save_threshed_data(self, ncdf: file_manager.SaveData):
-        """Save thresholded data.
-
-        .. deprecated::
-            Use the backend handler directly.
-        """
-        warnings.warn(
-            "PsbData.save_threshed_data() is deprecated. " "Use get_backend().save(data) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends.netcdf4_backend import NetCDF4Handler
-
-        handler = NetCDF4Handler()
-        handler._save_threshed_data(self, ncdf)
-
-    def save_data(self):
-        """Save all PSB information to a netcdf file.
-
-        .. deprecated::
-            Use the backend handler directly:
-            ``from spinqick.backends import get_backend; get_backend().save(data)``
-        """
-        warnings.warn(
-            "PsbData.save_data() is deprecated. " "Use get_backend().save(data) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends import get_backend
-
-        handler = get_backend()
-        return handler.save(self)
-
-    @classmethod
-    def load_spinqick_data(cls, nc_file: netCDF4.Dataset, **kwargs):
-        """Load PsbData from netcdf dataset.
-
-        .. deprecated::
-            Use the backend handler directly:
-            ``from spinqick.backends import get_backend; get_backend().load(path, load_psb=True)``
-        """
-        warnings.warn(
-            "PsbData.load_spinqick_data() is deprecated. "
-            "Use get_backend().load(path, load_psb=True) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends.netcdf4_backend import NetCDF4Handler
-
-        handler = NetCDF4Handler()
-        return handler._load_spinqick_data(nc_file, load_psb=True)
 
 
 class CompositeSpinqickData:
@@ -386,45 +248,3 @@ class CompositeSpinqickData:
         self.fit_param_dict: dict = {}
         self.best_fit: np.ndarray = np.array([])
         self.fit_axis: str = ""
-
-    def basic_composite_save(self):
-        """Save all SpinqickData objects to a single file.
-
-        .. deprecated::
-            Use the backend handler directly:
-            ``from spinqick.backends import get_backend; get_backend().save_composite(data)``
-        """
-        warnings.warn(
-            "CompositeSpinqickData.basic_composite_save() is deprecated. "
-            "Use get_backend().save_composite(data) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends import get_backend
-
-        handler = get_backend()
-        return handler.save_composite(self)
-
-    @classmethod
-    def load_composite(
-        cls,
-        nc_file: netCDF4.Dataset,
-        load_psb: bool = False,
-        **kwargs,
-    ):
-        """Create a composite data object from a netcdf file.
-
-        .. deprecated::
-            Use the backend handler directly:
-            ``from spinqick.backends import get_backend; get_backend().load_composite(path)``
-        """
-        warnings.warn(
-            "CompositeSpinqickData.load_composite() is deprecated. "
-            "Use get_backend().load_composite(path) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spinqick.backends.netcdf4_backend import NetCDF4Handler
-
-        handler = NetCDF4Handler()
-        return handler._load_composite_data(nc_file, load_psb=load_psb)
