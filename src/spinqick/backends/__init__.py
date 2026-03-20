@@ -5,30 +5,33 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from spinqick.backends.data_protocols import DataBackend
+    from spinqick.backends.data_protocols import DataHandler
 
-_BACKENDS: dict[str, type[DataBackend]] = {}
+_BACKENDS: dict[str, type[DataHandler]] = {}
 
 
-def register_backend(name: str, backend_cls: type[DataBackend]) -> None:
+def register_backend(name: str, backend_cls: type[DataHandler]) -> None:
     """Register a backend class by name (case-insensitive).
 
     Anyone can call this function to add a new backend following the pattern in netcdf4_backend.py.
-    Backends must implement the DataBackend interface. Backends do not need to be located in
+    Backends must implement the DataHandler interface. Backends do not need to be located in
     spinqick repository.
     """
     _BACKENDS[name.lower()] = backend_cls
 
 
-def get_backend(name: str | None = None) -> DataBackend:
-    """Get configured backend.
+def get_backend(name: str | None = None) -> DataHandler:
+    """Get configured data handler.
 
-    Falls back to netcdf if not specified. Lookup is case-insensitive.
+    Falls back to netcdf4 if not specified. Lookup is case-insensitive.
     """
     from spinqick.settings import file_settings
 
     name = name or file_settings.data_backend
     key = name.lower()
+    if key not in _BACKENDS:
+        # Lazy-import built-in backends so they self-register on first use
+        import spinqick.backends.netcdf4_backend  # noqa: F401
     if key not in _BACKENDS:
         raise KeyError(f"Unknown data backend {name!r}. Available: {list(_BACKENDS.keys())}")
     return _BACKENDS[key]()

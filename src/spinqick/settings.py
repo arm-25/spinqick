@@ -22,7 +22,8 @@ class FileSettings(pydantic_settings.BaseSettings):
     hardware_config: str = ""
     dot_experiment_config: str = ""
     filter_config: Optional[str] = None
-    data_backend: str = "netcdf"
+    data_backend: str = "netcdf4"
+    plotting_backend: str = "matplotlib"
 
 
 class FilterSettings(pydantic_settings.BaseSettings):
