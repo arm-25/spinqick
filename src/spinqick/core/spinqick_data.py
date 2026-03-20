@@ -246,7 +246,7 @@ class PsbData(SpinqickData):
         self.difference_avged: spinqick_enums.AverageLevel | None = None
         self.thresh_avged: spinqick_enums.AverageLevel | None = None
         self.threshed_data: List[np.ndarray] | None = None
-        self.threshold: List[float] | None
+        self.threshold: List[float] | None = None
 
     @property
     def metadata(self) -> dict[str, Any]:

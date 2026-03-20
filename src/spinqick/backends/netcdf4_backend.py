@@ -28,10 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def _load_analysis_data(nc_file: netCDF4.Dataset, data_desc: str, attr_name: str | None = None):
-    """Load data stored in the 'analyzed_data' group of the netcdf file.
-
-    This is a 1-to-1 copy of :func:`spinqick.core.spinqick_data.load_analysis_data`.
-    """
+    """Load data stored in the 'analyzed_data' group of the netcdf file."""
     processed = []
     attrs = []
     ana = nc_file["analyzed_data"]
@@ -51,11 +48,7 @@ def _load_analysis_data(nc_file: netCDF4.Dataset, data_desc: str, attr_name: str
 
 
 class NetCDF4Handler(DataHandler):
-    """DataHandler implementation using netCDF4 files.
-
-    All save/load logic that was previously on SpinqickData, PsbData, and CompositeSpinqickData is
-    collected here.
-    """
+    """DataHandler implementation using netCDF4 files."""
 
     # -- public save methods --------------------------------------------------
 
