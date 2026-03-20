@@ -185,11 +185,11 @@ class SaveData(netCDF4.Dataset):
     Check out their documentation for information at
     https://unidata.github.io/netcdf4-python/.
 
-    Can be used as a context manager::
+    Don't forget to run .close() on the Dataset object after
+    you've finished adding data.
 
-        with SaveData(path, "a", format="NETCDF4") as sd:
-            sd.add_axis("x", x_data)
-            sd.add_dataset("signal", ["x"], data)
+    Can be used as a context manager to automatically close
+    the file using a with-statement if it works in your code structure.
     """
 
     def __init__(self, *args, **kwargs):
@@ -245,9 +245,8 @@ class SaveData(netCDF4.Dataset):
         """Adds a dimension to netCDF object which corresponds to multiple swept variables.
 
         :param dim_label: name of the dimension associate with this axis
-        :param sweep_dict: provide the axis dictionary.  Accepts the flat format produced
-            by :meth:`SpinqickData.add_axis` where sweep variables sit alongside
-            ``"size"`` and ``"loop_no"`` as sibling keys.
+        :param sweep_dict: provide the axis dictionary.  Accepts the format produced
+            by :meth:`SpinqickData.add_axis`
         :param group_path: if the dataset is in a specific folder within the netcdf file, specify
             the name of this folder.
         :param dtype: datatype of the data provided. This is in a numpy dtype form.

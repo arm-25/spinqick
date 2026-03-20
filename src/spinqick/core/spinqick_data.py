@@ -108,7 +108,28 @@ class SpinqickData:
         loop_no: int = 0,
         units: List[str] | None = None,
     ):
-        """Add information describing a swept variable/ set of variables in your dataset."""
+        """Add information describing a swept variable or set of variables in your dataset.
+
+        Stores a flat dict in ``self.axes[axis_name]`` with the following structure::
+
+            {
+                "gate_x": {"data": np.ndarray, "units": "V"},   # one entry per sweep variable
+                "gate_y": {"data": np.ndarray, "units": "V"},   # (multi-variable axes)
+                "size": 50,       # number of points along this dimension
+                "loop_no": 1,     # loop nesting order (0 = outermost)
+            }
+
+        Sweep variable entries (dicts with a ``"data"`` key) sit alongside the
+        ``"size"`` and ``"loop_no"`` metadata keys.  Use :meth:`get_sweep_vars`
+        to extract only the sweep variable entries from an axis dict.
+
+        :param data: Sweep arrays, one per variable in *sweep_names*.
+        :param axis_name: Label for this axis (e.g. ``"x"``, ``"y"``, ``"time"``).
+        :param sweep_names: Gate or variable names corresponding to each array in *data*.
+        :param dim_size: Number of points along this dimension.
+        :param loop_no: Loop nesting order where 0 is the outermost loop.
+        :param units: Units for each sweep variable.  Defaults to ``"NA"`` when not provided.
+        """
         ax_dict = {}
         for i, sweep in enumerate(sweep_names):
             if units is None:
@@ -121,7 +142,12 @@ class SpinqickData:
         self.axes[axis_name] = ax_dict
 
     def add_fit_params(self, param_dict: dict, best_fit: np.ndarray, fit_axis: str):
-        """Add fit parameter attributes to the spinqick data object."""
+        """Add fit results to this data object.
+
+        :param param_dict: Named fit parameters, e.g. ``{"amplitude": 1.23, "frequency": 4.56}``.
+        :param best_fit: Array of the best-fit curve evaluated over *fit_axis*.
+        :param fit_axis: Axis label (e.g. ``"x"``) that *best_fit* corresponds to.
+        """
         self.fit_param_dict = param_dict
         self.best_fit = best_fit
         self.fit_axis = fit_axis

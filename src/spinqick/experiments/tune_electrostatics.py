@@ -12,6 +12,7 @@ import numpy as np
 import pydantic
 from lmfit import models
 from qick.asm_v2 import QickProgramV2
+from spinqick_data.SpinqickData import get_sweep_vars
 
 from spinqick.core import dot_experiment, spinqick_data
 from spinqick.helper_functions import analysis, hardware_manager, plot_tools, spinqick_enums
@@ -118,8 +119,8 @@ def analyze_cross_caps(
     fit_type: Literal["gaussian", "abs_max", "abs_min"] = "gaussian",
 ):
     """Analysis routine for the cross capacitance experiment."""
-    slow_gate_dict = list(data_obj.axes["x"].keys() - {"size", "loop_no"})[0]
-    fast_gate_dict = list(data_obj.axes["y"].keys() - {"size", "loop_no"})[0]
+    slow_gate_dict = list(get_sweep_vars(data_obj.axes["x"]).keys())[0]
+    fast_gate_dict = list(get_sweep_vars(data_obj.axes["y"]).keys())[0]
     n_vx = data_obj.axes["x"]["size"]
     center_data = np.zeros(n_vx)
     # fit each slice (fast sweep) to a gaussian
@@ -978,7 +979,7 @@ class TuneElectrostatics(dot_experiment.DotExperiment):
                         dset_label=dset.experiment_name,
                     )
                 else:
-                    gatename = list(dset.axes["x"].keys() - {"size", "loop_no"})
+                    gatename = list(get_sweep_vars(dset.axes["x"]).keys())
                     add_g_1d(
                         dset,
                         gatename[0],
